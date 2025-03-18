@@ -55,7 +55,7 @@ MOCK_LAMBDA_CONTEXT = MockLambdaContext(
     invoked_function_arn="arn://mock-lambda-function-arn",
 )
 
-MOCK_XRAY_TRACE_ID = 0x5FB7331105E8BB83207FA31D4D9CDB4C
+MOCK_XRAY_TRACE_ID = 338572219514663041520066929090053231844
 MOCK_XRAY_TRACE_ID_STR = f"{MOCK_XRAY_TRACE_ID:x}"
 MOCK_XRAY_PARENT_SPAN_ID = 0x3328B8445A6DBAD2
 MOCK_XRAY_TRACE_CONTEXT_COMMON = f"Root={TRACE_ID_VERSION}-{MOCK_XRAY_TRACE_ID_STR[:TRACE_ID_FIRST_PART_LENGTH]}-{MOCK_XRAY_TRACE_ID_STR[TRACE_ID_FIRST_PART_LENGTH:]};Parent={MOCK_XRAY_PARENT_SPAN_ID:x}"
@@ -138,7 +138,9 @@ class TestAwsLambdaInstrumentor(TestBase):
         self.assertEqual(len(spans), 1)
         span = spans[0]
         self.assertEqual(span.name, os.environ[_HANDLER])
-        self.assertEqual(span.get_span_context().trace_id, MOCK_XRAY_TRACE_ID)
+        # Coralogix AWS SDK disables AWS Context Propagation by default. As a result, we cannot
+        # predict the trace_id.
+        # self.assertEqual(span.get_span_context().trace_id, MOCK_XRAY_TRACE_ID)
         self.assertEqual(span.kind, SpanKind.SERVER)
         self.assertSpanHasAttributes(
             span,
@@ -148,12 +150,13 @@ class TestAwsLambdaInstrumentor(TestBase):
             },
         )
 
-        parent_context = span.parent
-        self.assertEqual(
-            parent_context.trace_id, span.get_span_context().trace_id
-        )
-        self.assertEqual(parent_context.span_id, MOCK_XRAY_PARENT_SPAN_ID)
-        self.assertTrue(parent_context.is_remote)
+        # Coralogix AWS SDK disables AWS Context Propagation by default. No parent span is set.
+        # parent_context = span.parent
+        # self.assertEqual(
+        #     parent_context.trace_id, span.get_span_context().trace_id
+        # )
+        # self.assertEqual(parent_context.span_id, MOCK_XRAY_PARENT_SPAN_ID)
+        # self.assertTrue(parent_context.is_remote)
 
         test_env_patch.stop()
 
@@ -171,8 +174,8 @@ class TestAwsLambdaInstrumentor(TestBase):
             disable_aws_context_propagation: bool = False
             disable_aws_context_propagation_envvar: str = ""
 
-        def custom_event_context_extractor(lambda_event):
-            return get_global_textmap().extract(lambda_event["foo"]["headers"])
+        def custom_event_context_extractor(args):
+            return get_global_textmap().extract(args[0]["foo"]["headers"])
 
         tests = [
             TestCase(
@@ -414,7 +417,7 @@ class TestAwsLambdaInstrumentor(TestBase):
         mock_execute_lambda(MOCK_LAMBDA_API_GATEWAY_HTTP_API_EVENT)
 
         spans = self.memory_exporter.get_finished_spans()
-        self.assertEqual(len(spans), 1)
+        self.assertEqual(len(spans), 2)
 
         self.memory_exporter.clear()
         AwsLambdaInstrumentor().uninstrument()
