@@ -20,7 +20,7 @@ OpenTelemetry logs.
 
 Emitted records follow the `exception log semantic conventions
 <https://opentelemetry.io/docs/specs/semconv/exceptions/exceptions-logs/>`_:
-the exception instance is handed to the logs API, which records
+the exception instance is passed to the Logs API, and the configured OpenTelemetry SDK derives
 ``exception.type``, ``exception.message`` and ``exception.stacktrace`` as log
 record attributes, and the event name is ``exception`` as prescribed for global
 unhandled exception handlers.
